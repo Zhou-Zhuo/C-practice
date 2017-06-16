@@ -1,12 +1,15 @@
 %{
 #include <stdlib.h>
 #include <ctype.h>
+#include "symbol_table.h"
 int inn = 0;
 char infix_expr[4096];
 #define GETC(c) (infix_expr[inn++])
 int outn = 0;
 char suffix_expr[4096];
 #define PUTC(c) (suffix_expr[outn++] = c);
+int yylex();
+int yyerror(char *e);
 %}
 
 

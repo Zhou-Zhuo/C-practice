@@ -20,6 +20,8 @@ struct bitmap* new_bitmap(size_t size_in_bit)
     bm->size_in_bit = size_in_bit;
     bm->size_in_word = size_in_word;
 
+    memset(bm->bits, 0, 4 * bm->size_in_word);
+
     return bm;
 }
 
@@ -56,7 +58,7 @@ struct bitmap* bitmap_or(struct bitmap *bm, struct bitmap *bm1, struct bitmap *b
         bm->bits[i] = bm1->bits[i] | bm2->bits[i];
 
     if (bm->size_in_bit % 32)
-        bm->bits[DIV_ROUND_UP(bm->size_in_bit, 32) - 1] &
+        bm->bits[DIV_ROUND_UP(bm->size_in_bit, 32) - 1] &=
             (((uint32_t) ~0) >> (32 - (bm->size_in_bit % 32)));
 
     return bm;

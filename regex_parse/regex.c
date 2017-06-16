@@ -1,10 +1,12 @@
 #include <unistd.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include "translate.h"
 #include "regex.h"
+#include "bitmap.h"
 #include "symbol_table.h"
 
 struct symbol_table symbol_tbl;
@@ -57,6 +59,7 @@ static struct grammar_tree_node *suffix_to_grammar_tree(const char *suffix,
     node = malloc(sizeof(struct grammar_tree_node));
     if (!node)
         error("malloc grammar_tree_node failed\n");
+    memset(node, 0, sizeof(*node));
 
     c = suffix[--rest];
     if (c == '-')
@@ -189,10 +192,13 @@ struct grammar_tree_node *generate_grammar_tree(char *regex)
         malloc((pos_nr + 1) * sizeof(struct grammar_tree_node *));
     if (!pos_to_grammar_tree_node)
         error("malloc pos_to_grammar_tree_node table failed.\n");
+    memset(pos_to_grammar_tree_node, 0,
+            (pos_nr + 1) * sizeof(struct grammar_tree_node *));
 
     followpos_tbl = malloc((pos_nr + 1) * sizeof(struct bitmap *));
     if (!followpos_tbl)
         error("malloc followpos_tbl failed.\n");
+    followpos_tbl[0] = NULL;
     for (i = 1; i <= pos_nr; ++ i) {
         followpos_tbl[i] = new_bitmap(pos_nr);
         if (!followpos_tbl[i])
@@ -216,10 +222,11 @@ static struct dfa_state_internal *new_dfa_state_internal(struct bitmap *position
     if (!state)
         error("malloc dfa_state_internal failed.\n");
     state->positions = new_bitmap_cpy(positions);
-    state->trans_map = malloc(get_symbol_nr(&symbol_tbl) * sizeof(state));
+    // NOTE: MIND THIS PLUS ONE !!
+    state->trans_map = malloc((get_symbol_max(&symbol_tbl) + 1) * sizeof(state));
     if (!state->trans_map)
         error("malloc state trans_map failed.\n");
-    memset(state->trans_map, 0, get_symbol_nr(&symbol_tbl) * sizeof(state));
+    memset(state->trans_map, 0, (get_symbol_max(&symbol_tbl) + 1) * sizeof(state));
     state->acceptable = 0;
     state->next = NULL;
     return state;
@@ -281,11 +288,9 @@ struct dfa_state_internal *generate_dfa(struct grammar_tree_node *tree)
             bitmap_reset(nextpos);
             // Calculate next positions with input symbol c in current state.
             int pos;
-            for_each_set_bit(pos, state->positions) {
-                if (pos_to_grammar_tree_node[pos]->value == c) {
+            for_each_set_bit(pos, state->positions)
+                if (pos_to_grammar_tree_node[pos]->value == c)
                     bitmap_set_bm(nextpos, followpos_tbl[pos]);
-                }
-            }
 
             if (!is_bitmap_empty(nextpos)) {
                 newstate = new_dfa_state_internal(nextpos);
@@ -303,21 +308,25 @@ struct dfa_state_internal *generate_dfa(struct grammar_tree_node *tree)
                 if (!marked) {
                     // Is new state we got not marked but already existing ?
                     // TODO use hash method
+                    int exist = 0;
                     for (s = unmarked_list; s; s = s->next)
                         if (bitmap_eq(s->positions, newstate->positions)) {
                             free_dfa_state_internal(newstate);
                             newstate = s;
+                            exist = 1;
                             break;
                         }
-                    newstate->next = unmarked_list;
-                    unmarked_list = newstate;
+                    if (!exist) {
+                        newstate->next = unmarked_list;
+                        unmarked_list = newstate;
+                    }
                 }
                 newstate->acceptable =
                     is_bit_set(newstate->positions, accept_position);
             }
             //            c
             // Add state ---> newstate to state transaction map.
-            state->trans_map[c] = newstate;
+            state->trans_map[(int)c] = newstate;
             dump_trans(newstate, state, c);
         }
     }
@@ -329,15 +338,22 @@ int dfa_match(struct dfa_state_internal *init_state, const char *str)
 {
     int i = 0;
     struct dfa_state_internal *state = init_state;
+    char c;
 
     printf("\nstart matching\n");
     while (1) {
+        c = str[i++];
         if (!state)
             return 0;
-        if (!str[i])
+        if (!c)
             return state->acceptable;
-        dump_trans(state->trans_map[str[i]], state, str[i]);
-        state = state->trans_map[str[i++]];
+        if (is_symbol_valid(&symbol_tbl, c)) {
+            //dump_trans(state->trans_map[(int)c], state, c);
+            state = state->trans_map[(int)c];
+        } else {
+            dump_trans(NULL, state, c);
+            state = NULL;
+        }
     }
 }
 

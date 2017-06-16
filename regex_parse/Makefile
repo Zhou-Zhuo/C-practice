@@ -8,13 +8,15 @@ BM_TST_INC := bitmap.h common.h
 
 YACC_SRC := translate.y
 
+CFLAGS += -Wall -Werror -g
+
 default : regx
 
 regx : $(SRC) $(INC)
-	$(CC) $(SRC) -o $@
+	$(CC) $(CFLAGS) $(SRC) -o $@
 
 translate.c : $(YACC_SRC)
 	$(YACC) $^ -o $@
 
 bitmap_tst : $(BM_TST_SRC) $(BM_TST_INC)
-	$(CC) $(BM_TST_SRC) -o $@
+	$(CC) $(CFLAGS) $(BM_TST_SRC) -o $@

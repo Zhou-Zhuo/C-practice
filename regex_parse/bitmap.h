@@ -17,6 +17,8 @@ struct bitmap {
     ((bm)->bits[DIV_ROUND_UP((bit), 32) - 1] & (1 << (((bit) - 1) % 32)))
 
 
+int find_next_bit(struct bitmap *bm, int start);
+
 #define for_each_set_bit(b, bm) \
     for ((b) = find_next_bit((bm), 1); \
             (b) != -1; \
@@ -28,5 +30,7 @@ struct bitmap* new_bitmap_cpy(struct bitmap *src);
 struct bitmap* bitmap_set_bit(struct bitmap *bm, int bit);
 struct bitmap* bitmap_set_bm(struct bitmap *bm, struct bitmap *bmm);
 struct bitmap* bitmap_or(struct bitmap *bm, struct bitmap *bm1, struct bitmap *bm2);
+int is_bitmap_empty(struct bitmap *bm);
+int bitmap_eq(struct bitmap *bm1, struct bitmap *bm2);
 
 #endif
