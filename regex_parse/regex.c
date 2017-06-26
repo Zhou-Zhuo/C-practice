@@ -139,20 +139,18 @@ children_done:
         case CAT:
             node->nullable = left->nullable && right->nullable;
             assert(!node->firstpos);
-            if (left->nullable) {
-                node->subpos_max = left->subpos_max > right->subpos_max ?
-                    left->subpos_max : right->subpos_max;
-                node->firstpos = new_bitmap(node->subpos_max);
-                node->lastpos = new_bitmap(node->subpos_max);
+            node->subpos_max = left->subpos_max > right->subpos_max ?
+                left->subpos_max : right->subpos_max;
+            node->firstpos = new_bitmap(node->subpos_max);
+            node->lastpos = new_bitmap(node->subpos_max);
+            if (left->nullable)
                 bitmap_or(node->firstpos, left->firstpos, right->firstpos);
-                bitmap_or(node->lastpos, left->lastpos, right->lastpos);
-            } else {
-                node->subpos_max = left->subpos_max;
-                node->firstpos = new_bitmap(node->subpos_max);
-                node->lastpos = new_bitmap(node->subpos_max);
+            else
                 bitmap_set_bm(node->firstpos, left->firstpos);
+            if (right->nullable)
+                bitmap_or(node->lastpos, left->lastpos, right->lastpos);
+            else
                 bitmap_set_bm(node->lastpos, right->lastpos);
-            }
             for_each_set_bit(pos, left->lastpos) {
                 bitmap_set_bm(followpos_tbl[pos], right->firstpos);
             }
@@ -331,6 +329,8 @@ struct dfa_state_internal *generate_dfa(struct grammar_tree_node *tree)
         }
     }
 
+    free_bitmap(nextpos);
+
     return init_state;
 }
 
@@ -348,7 +348,7 @@ int dfa_match(struct dfa_state_internal *init_state, const char *str)
         if (!c)
             return state->acceptable;
         if (is_symbol_valid(&symbol_tbl, c)) {
-            //dump_trans(state->trans_map[(int)c], state, c);
+            dump_trans(state->trans_map[(int)c], state, c);
             state = state->trans_map[(int)c];
         } else {
             dump_trans(NULL, state, c);
@@ -383,6 +383,27 @@ static inline void diagram_putc(char c)
 static inline void diagram_puts(const char *s)
 {
     fputs(s, stdout);
+}
+
+static void dump_follow(int pos)
+{
+    int p;
+    printf("{");
+    for_each_set_bit(p, followpos_tbl[pos])
+        printf(" %d", p);
+    printf(" }");
+}
+
+static void dump_fst_lst(struct grammar_tree_node *n)
+{
+    int p;
+    printf("<");
+    for_each_set_bit(p, n->firstpos)
+        printf(" %d", p);
+    printf(" :");
+    for_each_set_bit(p, n->lastpos)
+        printf(" %d", p);
+    printf(" >");
 }
 
 #define LEFT_1ST  0x00000001
@@ -428,6 +449,11 @@ int draw_tree(struct grammar_tree_node *tree, uint32_t flag)
         case STAR: diagram_putc('*'); break;
         default: break;
     }
+    if (!(flag & EXT_SYTLE)) {
+        dump_fst_lst(tree);
+    }
+    if (tree->type == CHAR || tree->type == END)
+        dump_follow(tree->pos);
 
     if (flag & EXT_SYTLE) {
         if (tree->type == CHAR || tree->type == END) {
@@ -515,7 +541,7 @@ int main(int argc, char **argv)
         return 1;
 
     draw_tree(tree, 0);
-    putchar('\n');
+    printf("\n\n");
     draw_tree(tree, EXT_SYTLE);
 
     init_state = generate_dfa(tree);

@@ -38,6 +38,11 @@ struct bitmap* new_bitmap_cpy(struct bitmap *src)
     return bm;
 }
 
+void free_bitmap(struct bitmap *bm)
+{
+    free(bm);
+}
+
 struct bitmap* bitmap_set_bit(struct bitmap *bm, int bit)
 {
     if (bit > bm->size_in_bit)

@@ -27,6 +27,7 @@ int find_next_bit(struct bitmap *bm, int start);
 struct bitmap* bitmap_reset(struct bitmap *bm);
 struct bitmap* new_bitmap(size_t size_in_bit);
 struct bitmap* new_bitmap_cpy(struct bitmap *src);
+void free_bitmap(struct bitmap *bm);
 struct bitmap* bitmap_set_bit(struct bitmap *bm, int bit);
 struct bitmap* bitmap_set_bm(struct bitmap *bm, struct bitmap *bmm);
 struct bitmap* bitmap_or(struct bitmap *bm, struct bitmap *bm1, struct bitmap *bm2);
